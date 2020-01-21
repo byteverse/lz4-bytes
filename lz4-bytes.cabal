@@ -37,6 +37,5 @@ test-suite test
     , byteslice
     , lz4-bytes
     , primitive
-    , quickcheck-classes >=0.6.4
     , tasty
     , tasty-quickcheck

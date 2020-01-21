@@ -23,22 +23,28 @@ import qualified Data.Primitive as PM
 import qualified GHC.Exts as Exts
 
 -- | Compress bytes using LZ4. This function has undefined
--- behavior on byte sequences larger than 2,113,929,216 bytes.
-compress :: Bytes -> Bytes
-compress (Bytes (ByteArray arr) off len) = runST do
+-- behavior on byte sequences larger than 2,113,929,216 bytes. This calls @LZ4_compress_default@.
+compress ::
+     Int -- ^ Acceleration Factor (Use 1 if uncertain)
+  -> Bytes -- ^ Bytes to compress
+  -> Bytes
+compress !lvl (Bytes (ByteArray arr) off len) = runST do
   let maxSz = inlineCompressBound len
   dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
-  actualSz <- unsafeIOToST (c_hs_compress_default arr off dst# 0 len maxSz)
+  actualSz <- unsafeIOToST (c_hs_compress_fast arr off dst# 0 len maxSz lvl)
   shrinkMutableByteArray dst actualSz
   result <- PM.unsafeFreezeByteArray dst
   pure (Bytes result 0 actualSz)
 
 -- | Variant of 'compress' with an unsliced result.
-compressU :: Bytes -> ByteArray
-compressU (Bytes (ByteArray arr) off len) = runByteArrayST do
+compressU :: 
+     Int -- ^ Acceleration Factor (Use 1 if uncertain)
+  -> Bytes -- ^ Bytes to compress
+  -> ByteArray
+compressU !lvl (Bytes (ByteArray arr) off len) = runByteArrayST do
   let maxSz = inlineCompressBound len
   dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
-  actualSz <- unsafeIOToST (c_hs_compress_default arr off dst# 0 len maxSz)
+  actualSz <- unsafeIOToST (c_hs_compress_fast arr off dst# 0 len maxSz lvl)
   shrinkMutableByteArray dst actualSz
   PM.unsafeFreezeByteArray dst
 
@@ -71,14 +77,15 @@ decompressU dstSz (Bytes (ByteArray arr) off len) = runST do
 inlineCompressBound :: Int -> Int
 inlineCompressBound s = s + (div s 255) + 16
 
-foreign import ccall unsafe "hs_compress_default"
-  c_hs_compress_default ::
+foreign import ccall unsafe "hs_compress_fast"
+  c_hs_compress_fast ::
        ByteArray# -- Source
     -> Int       -- Source offset
     -> MutableByteArray# s -- Destination
     -> Int       -- Destination offset
     -> Int       -- Input size
     -> Int       -- Destination capacity
+    -> Int       -- Compression level
     -> IO Int    -- Result length
 
 foreign import ccall unsafe "hs_decompress_safe"
