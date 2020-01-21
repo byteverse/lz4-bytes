@@ -7,23 +7,57 @@
 module Lz4.Block
   ( compress
   , compressU
+  , compressHighly
+  , compressHighlyU
   , decompress
   , decompressU
   ) where
 
-import GHC.Exts (ByteArray#,MutableByteArray#)
-import Data.Primitive (MutableByteArray(..),ByteArray(..))
-import GHC.ST (ST(ST))
-import Data.Bytes.Types (Bytes(Bytes))
-import GHC.IO (unsafeIOToST)
-import Control.Monad.ST.Run (runByteArrayST)
 import Control.Monad.ST (runST)
+import Control.Monad.ST.Run (runByteArrayST)
+import Data.Bytes.Types (Bytes(Bytes))
+import Data.Primitive (MutableByteArray(..),ByteArray(..))
+import GHC.Exts (ByteArray#,MutableByteArray#)
+import GHC.IO (unsafeIOToST)
+import GHC.ST (ST(ST))
 
 import qualified Data.Primitive as PM
 import qualified GHC.Exts as Exts
 
--- | Compress bytes using LZ4. This function has undefined
--- behavior on byte sequences larger than 2,113,929,216 bytes. This calls @LZ4_compress_default@.
+-- | Compress bytes using LZ4's HC algorithm. This is slower
+-- than 'compress' but provides better compression. A higher
+-- compression level increases compression but decreases speed.
+-- This function has undefined behavior on byte sequences larger
+-- than 2,113,929,216 bytes. This calls @LZ4_compress_HC@.
+compressHighly ::
+     Int -- ^ Compression level (Use 9 if uncertain)
+  -> Bytes -- ^ Bytes to compress
+  -> Bytes
+compressHighly !lvl (Bytes (ByteArray arr) off len) = runST do
+  let maxSz = inlineCompressBound len
+  dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
+  actualSz <- unsafeIOToST (c_hs_compress_HC arr off dst# 0 len maxSz lvl)
+  shrinkMutableByteArray dst actualSz
+  result <- PM.unsafeFreezeByteArray dst
+  pure (Bytes result 0 actualSz)
+
+-- | Variant of 'compressHighly' with an unsliced result.
+compressHighlyU ::
+     Int -- ^ Compression level (Use 9 if uncertain)
+  -> Bytes -- ^ Bytes to compress
+  -> ByteArray
+compressHighlyU !lvl (Bytes (ByteArray arr) off len) = runST do
+  let maxSz = inlineCompressBound len
+  dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
+  actualSz <- unsafeIOToST (c_hs_compress_HC arr off dst# 0 len maxSz lvl)
+  shrinkMutableByteArray dst actualSz
+  PM.unsafeFreezeByteArray dst
+
+-- | Compress bytes using LZ4.
+-- A higher acceleration factor increases speed but decreases
+-- compression. This function has undefined
+-- behavior on byte sequences larger than 2,113,929,216 bytes.
+-- This calls @LZ4_compress_default@.
 compress ::
      Int -- ^ Acceleration Factor (Use 1 if uncertain)
   -> Bytes -- ^ Bytes to compress
@@ -79,6 +113,17 @@ inlineCompressBound s = s + (div s 255) + 16
 
 foreign import ccall unsafe "hs_compress_fast"
   c_hs_compress_fast ::
+       ByteArray# -- Source
+    -> Int       -- Source offset
+    -> MutableByteArray# s -- Destination
+    -> Int       -- Destination offset
+    -> Int       -- Input size
+    -> Int       -- Destination capacity
+    -> Int       -- Acceleration factor
+    -> IO Int    -- Result length
+
+foreign import ccall unsafe "hs_compress_HC"
+  c_hs_compress_HC ::
        ByteArray# -- Source
     -> Int       -- Source offset
     -> MutableByteArray# s -- Destination

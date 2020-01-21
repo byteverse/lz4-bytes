@@ -5,7 +5,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language TypeApplications #-}
 
-import Lz4.Block (compress,decompress)
+import Lz4.Block (compress,compressHighly,decompress)
 import Data.Bytes (Bytes)
 import Data.Word (Word8)
 import Test.Tasty (defaultMain,testGroup,TestTree)
@@ -22,6 +22,11 @@ tests :: TestTree
 tests = testGroup "lz4"
   [ testProperty "roundtrip" $ forAll genBytes $ \bs ->
       let cs = compress 1 bs in
+      Just bs
+      ===
+      decompress (Bytes.length bs) cs
+  , testProperty "roundtrip-HC" $ forAll genBytes $ \bs ->
+      let cs = compressHighly 3 bs in
       Just bs
       ===
       decompress (Bytes.length bs) cs
