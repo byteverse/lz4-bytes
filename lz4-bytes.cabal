@@ -1,9 +1,12 @@
 cabal-version: 2.2
 name: lz4-bytes
 version: 0.1.0.0
--- synopsis:
--- description:
--- bug-reports:
+synopsis: Bindings to LZ4
+description:
+  This library is similar to the @lz4@ library except that it works
+  with the @Bytes@ type from @byteslice@ rather than @ByteString@.
+homepage: https://github.com/byteverse/lz4-bytes
+bug-reports: https://github.com/byteverse/lz4-bytes/issues
 license: BSD-3-Clause
 license-file: LICENSE
 author: Andrew Martin
