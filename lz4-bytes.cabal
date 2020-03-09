@@ -1,6 +1,6 @@
 cabal-version: 2.2
 name: lz4-bytes
-version: 0.1.0.1
+version: 0.1.0.2
 synopsis: Bindings to LZ4
 description:
   This library is similar to the @lz4@ library except that it works
@@ -17,6 +17,7 @@ build-type: Simple
 extra-source-files:
   CHANGELOG.md
   cbits/lz4.h
+  cbits/lz4hc.h
 
 library
   exposed-modules:
