@@ -1,16 +1,26 @@
-{-# language BlockArguments #-}
-{-# language UnliftedFFITypes #-}
-{-# language MagicHash #-}
 {-# language BangPatterns #-}
+{-# language BlockArguments #-}
+{-# language DeriveAnyClass #-}
+{-# language DerivingStrategies #-}
+{-# language MagicHash #-}
 {-# language UnboxedTuples #-}
+{-# language UnliftedFFITypes #-}
 
+-- | Compress a contiguous sequence of bytes into a single LZ4 block.
+-- These functions do not perform any framing.
 module Lz4.Block
-  ( compress
+  ( -- * Compression
+    compress
   , compressU
   , compressHighly
   , compressHighlyU
+    -- * Decompression
   , decompress
   , decompressU
+    -- * Unsafe Compression
+  , compressInto
+    -- * Computing buffer size
+  , requiredBufferSize
   ) where
 
 import Control.Monad.ST (runST)
@@ -21,6 +31,7 @@ import GHC.Exts (ByteArray#,MutableByteArray#)
 import GHC.IO (unsafeIOToST)
 import GHC.ST (ST(ST))
 
+import qualified Control.Exception
 import qualified Data.Primitive as PM
 import qualified GHC.Exts as Exts
 
@@ -34,7 +45,7 @@ compressHighly ::
   -> Bytes -- ^ Bytes to compress
   -> Bytes
 compressHighly !lvl (Bytes (ByteArray arr) off len) = runST do
-  let maxSz = inlineCompressBound len
+  let maxSz = requiredBufferSize len
   dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
   actualSz <- unsafeIOToST (c_hs_compress_HC arr off dst# 0 len maxSz lvl)
   shrinkMutableByteArray dst actualSz
@@ -47,7 +58,7 @@ compressHighlyU ::
   -> Bytes -- ^ Bytes to compress
   -> ByteArray
 compressHighlyU !lvl (Bytes (ByteArray arr) off len) = runST do
-  let maxSz = inlineCompressBound len
+  let maxSz = requiredBufferSize len
   dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
   actualSz <- unsafeIOToST (c_hs_compress_HC arr off dst# 0 len maxSz lvl)
   shrinkMutableByteArray dst actualSz
@@ -63,12 +74,34 @@ compress ::
   -> Bytes -- ^ Bytes to compress
   -> Bytes
 compress !lvl (Bytes (ByteArray arr) off len) = runST do
-  let maxSz = inlineCompressBound len
+  let maxSz = requiredBufferSize len
   dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
   actualSz <- unsafeIOToST (c_hs_compress_fast arr off dst# 0 len maxSz lvl)
   shrinkMutableByteArray dst actualSz
   result <- PM.unsafeFreezeByteArray dst
   pure (Bytes result 0 actualSz)
+
+-- | Compress bytes using LZ4, pasting the compressed bytes into the
+-- mutable byte array at the specified offset.
+--
+-- Precondition: There must be at least
+-- @'requiredBufferSize' (Bytes.length src)@ bytes available starting
+-- from the offset in the destination buffer. This is checked, and
+-- this function will throw an exception if this invariant is violated.
+compressInto ::
+     Int -- ^ Acceleration Factor (Use 1 if uncertain)
+  -> Bytes -- ^ Bytes to compress
+  -> MutableByteArray s -- ^ Destination buffer
+  -> Int -- ^ Offset into destination buffer
+  -> Int -- ^ Bytes remaining in destination buffer
+  -> ST s Int -- ^ Next available offset in destination buffer 
+compressInto !lvl (Bytes (ByteArray arr) off len) dst@(MutableByteArray dst# ) !doff !dlen = do
+  let maxSz = requiredBufferSize len
+  if dlen < maxSz
+    then unsafeIOToST (Control.Exception.throwIO Lz4BufferTooSmall)
+    else do
+      actualSz <- unsafeIOToST (c_hs_compress_fast arr off dst# doff len maxSz lvl)
+      pure (doff + actualSz)
 
 -- | Variant of 'compress' with an unsliced result.
 compressU :: 
@@ -76,7 +109,7 @@ compressU ::
   -> Bytes -- ^ Bytes to compress
   -> ByteArray
 compressU !lvl (Bytes (ByteArray arr) off len) = runByteArrayST do
-  let maxSz = inlineCompressBound len
+  let maxSz = requiredBufferSize len
   dst@(MutableByteArray dst# ) <- PM.newByteArray maxSz
   actualSz <- unsafeIOToST (c_hs_compress_fast arr off dst# 0 len maxSz lvl)
   shrinkMutableByteArray dst actualSz
@@ -106,10 +139,10 @@ decompressU dstSz (Bytes (ByteArray arr) off len) = runST do
       pure (Just result)
     else pure Nothing
 
--- Copied from a macro lz4.h to avoid using FFI for simple
--- arithmetic. Make sure this stays in sync with the macro.
-inlineCompressBound :: Int -> Int
-inlineCompressBound s = s + (div s 255) + 16
+-- | Copied from the @LZ4_COMPRESSBOUND@ macro lz4.h to avoid using
+-- FFI for simple arithmetic. Make sure this stays in sync with the macro.
+requiredBufferSize :: Int -> Int
+requiredBufferSize s = s + (div s 255) + 16
 
 foreign import ccall unsafe "hs_compress_fast"
   c_hs_compress_fast ::
@@ -146,3 +179,12 @@ foreign import ccall unsafe "hs_decompress_safe"
 shrinkMutableByteArray :: MutableByteArray s -> Int -> ST s ()
 shrinkMutableByteArray (MutableByteArray x) (Exts.I# i) =
   ST (\s -> (# Exts.shrinkMutableByteArray# x i s, () #) )
+
+data Lz4BufferTooSmall = Lz4BufferTooSmall
+  deriving stock (Eq,Show)
+  deriving anyclass (Control.Exception.Exception)
+
+-- foreign import capi "lz4.h value sizeof(LZ4_stream_t)" lz4StreamSz :: Int
+-- 
+-- allocateLz4StreamT :: ST s (MutableByteArray s)
+-- allocateLz4StreamT = PM.newPinnedByteArray lz4StreamSz
