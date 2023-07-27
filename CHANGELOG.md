@@ -1,6 +1,6 @@
 # Revision history for lz4-bytes
 
-## 0.1.1.0 -- 2023-??-??
+## 0.1.1.0 -- 2023-07-27
 
 * Add `Lz4.Frame` module for producing LZ4 frames. This is being added
   because the Apache Arrow format uses LZ4 frames as one of its compression
