@@ -1,5 +1,9 @@
 # Revision history for lz4-bytes
 
+## 0.1.1.1 -- 2024-01-31
+
+* Update package metadata.
+
 ## 0.1.1.0 -- 2023-07-27
 
 * Add `Lz4.Frame` module for producing LZ4 frames. This is being added

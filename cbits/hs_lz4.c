@@ -68,7 +68,7 @@ HsInt hs_decompress_safe
 //   result = LZ4_compress_fast_extState(ctx, src+soff, dest+doff, slen, dstCapacity, acceleration);
 //   return result;
 // }
-// 
+//
 // HsInt hs_compress_fast_chunks_continue
 //   ( LZ4_stream_t* ctx
 //   , const char* src
@@ -83,4 +83,3 @@ HsInt hs_decompress_safe
 //   result = LZ4_compress_fast_continue(ctx, src+soff, dest+doff, slen, dstCapacity, acceleration);
 //   return result;
 // }
-
