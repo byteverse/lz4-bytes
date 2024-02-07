@@ -18,19 +18,14 @@ module Lz4.Frame
 import Lz4.Internal (c_hs_compress_HC, requiredBufferSize)
 
 import Control.Monad.ST (runST)
-import Control.Monad.ST.Run (runByteArrayST)
 import Data.Bytes.Types (Bytes (Bytes))
 import Data.Int (Int32)
 import Data.Primitive (ByteArray (..), MutableByteArray (..))
 import Data.Word (Word8)
-import GHC.Exts (ByteArray#, MutableByteArray#)
 import GHC.IO (unsafeIOToST)
-import GHC.ST (ST (ST))
 
-import qualified Control.Exception
 import qualified Data.Primitive as PM
 import qualified Data.Primitive.ByteArray.LittleEndian as LE
-import qualified GHC.Exts as Exts
 
 {- | Use HC compression to produce a frame with a single block.
 All optional fields (checksums, content sizes, and dictionary IDs)
