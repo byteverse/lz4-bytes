@@ -35,11 +35,10 @@ import Data.Bytes.Types (Bytes (Bytes))
 import Data.Primitive (ByteArray (..), MutableByteArray (..))
 import GHC.Exts (ByteArray#, MutableByteArray#)
 import GHC.IO (unsafeIOToST)
-import GHC.ST (ST (ST))
+import GHC.ST (ST)
 
 import qualified Control.Exception
 import qualified Data.Primitive as PM
-import qualified GHC.Exts as Exts
 
 {- | Compress bytes using LZ4's HC algorithm. This is slower
 than 'compress' but provides better compression. A higher
@@ -116,7 +115,7 @@ compressInto ::
   Int ->
   -- | Next available offset in destination buffer
   ST s Int
-compressInto !lvl (Bytes (ByteArray arr) off len) dst@(MutableByteArray dst#) !doff !dlen = do
+compressInto !lvl (Bytes (ByteArray arr) off len) _dst@(MutableByteArray dst#) !doff !dlen = do
   let maxSz = requiredBufferSize len
   if dlen < maxSz
     then unsafeIOToST (Control.Exception.throwIO Lz4BufferTooSmall)

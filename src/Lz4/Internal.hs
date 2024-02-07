@@ -11,17 +11,8 @@ module Lz4.Internal
   , c_hs_compress_HC
   ) where
 
-import Control.Monad.ST (runST)
-import Control.Monad.ST.Run (runByteArrayST)
-import Data.Bytes.Types (Bytes (Bytes))
-import Data.Primitive (ByteArray (..), MutableByteArray (..))
 import GHC.Exts (ByteArray#, MutableByteArray#)
-import GHC.IO (unsafeIOToST)
-import GHC.ST (ST (ST))
 
-import qualified Control.Exception
-import qualified Data.Primitive as PM
-import qualified GHC.Exts as Exts
 
 {- | Copied from the @LZ4_COMPRESSBOUND@ macro lz4.h to avoid using
 FFI for simple arithmetic. Make sure this stays in sync with the macro.
