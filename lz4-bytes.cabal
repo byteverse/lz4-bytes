@@ -1,12 +1,11 @@
 cabal-version:      2.2
 name:               lz4-bytes
-version:            0.1.1.1
+version:            0.1.2.0
 synopsis:           Bindings to LZ4
 description:
   This library is similar to the @lz4@ library except that it works
   with the @Bytes@ type from @byteslice@ rather than @ByteString@.
   Also, this library has some amount of support for LZ4 frames.
-
 homepage:           https://github.com/byteverse/lz4-bytes
 bug-reports:        https://github.com/byteverse/lz4-bytes/issues
 license:            BSD-3-Clause
@@ -60,6 +59,8 @@ test-suite test
     , lz4-bytes
     , tasty
     , tasty-quickcheck
+    , tasty-hunit
+    , primitive   >=0.7
 
 source-repository head
   type:     git

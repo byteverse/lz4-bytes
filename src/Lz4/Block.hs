@@ -27,7 +27,7 @@ module Lz4.Block
   , requiredBufferSize
   ) where
 
-import Lz4.Internal (c_hs_compress_HC, requiredBufferSize)
+import Lz4.Internal (requiredBufferSize,c_hs_compress_HC,c_hs_decompress_safe)
 
 import Control.Monad.ST (runST)
 import Control.Monad.ST.Run (runByteArrayST)
@@ -175,16 +175,6 @@ foreign import ccall unsafe "hs_compress_fast"
     Int -> -- Input size
     Int -> -- Destination capacity
     Int -> -- Acceleration factor
-    IO Int -- Result length
-
-foreign import ccall unsafe "hs_decompress_safe"
-  c_hs_decompress_safe ::
-    ByteArray# -> -- Source
-    Int -> -- Source offset
-    MutableByteArray# s -> -- Destination
-    Int -> -- Destination offset
-    Int -> -- Input size
-    Int -> -- Destination capacity
     IO Int -- Result length
 
 data Lz4BufferTooSmall = Lz4BufferTooSmall
