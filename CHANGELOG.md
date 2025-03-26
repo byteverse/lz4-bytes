@@ -1,5 +1,9 @@
 # Revision history for lz4-bytes
 
+## 0.1.2.0 -- 2025-03-26
+
+* Add `Lz4.Frame.decompressU`.
+
 ## 0.1.1.1 -- 2024-01-31
 
 * Update package metadata.
