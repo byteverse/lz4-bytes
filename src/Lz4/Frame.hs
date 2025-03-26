@@ -21,13 +21,11 @@ import Lz4.Internal (requiredBufferSize,c_hs_compress_HC,c_hs_decompress_safe)
 
 import Control.Monad (when)
 import Control.Monad.ST (runST)
-import Control.Monad.ST.Run (runByteArrayST)
 import Data.Bits ((.&.))
 import Data.Bytes.Types (Bytes (Bytes))
 import Data.Int (Int32)
 import Data.Primitive (ByteArray (..), MutableByteArray (..))
 import Data.Word (Word8, Word32)
-import GHC.Exts (ByteArray#,MutableByteArray#)
 import GHC.IO (unsafeIOToST)
 
 import qualified Data.Primitive as PM
@@ -45,7 +43,7 @@ decompressU ::
      Int -- ^ The exact size of the decompressed bytes
   -> Bytes -- ^ Compressed bytes
   -> Maybe ByteArray
-decompressU !decompressedSize bytes@(Bytes arr@(ByteArray arr# ) off len) = do
+decompressU !decompressedSize (Bytes arr@(ByteArray arr# ) off len) = do
   when (len < 11) Nothing
   when (indexWord8 arr off /= 0x04) Nothing
   when (indexWord8 arr (off + 1) /= 0x22) Nothing
@@ -88,7 +86,8 @@ decompressU !decompressedSize bytes@(Bytes arr@(ByteArray arr# ) off len) = do
       -- suite, and I cannot find examples of this feature used in the wild.
       -- If anyone knows of an example, open a PR.
       when (decompressedSize /= compressedSizeI) Nothing
-      Just $! Bytes.toByteArray bytes
+      when (decompressedSize + 15 /= len) Nothing
+      Just $! Bytes.toByteArrayClone (Bytes arr (off + 11) decompressedSize)
 
 {- | Use HC compression to produce a frame with a single block.
 All optional fields (checksums, content sizes, and dictionary IDs)

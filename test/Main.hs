@@ -6,7 +6,7 @@ import Data.Primitive (ByteArray,sizeofByteArray)
 import Data.Word (Word8)
 import Lz4.Block (compress, compressHighly, decompress)
 import Test.Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit (testCase)
+import Test.Tasty.HUnit (testCase,(@=?))
 import Test.Tasty.QuickCheck (Gen, choose, forAll, testProperty, vectorOf, (===))
 
 import qualified Data.Bytes as Bytes
@@ -39,6 +39,9 @@ tests = testGroup "lz4"
     , testCase "example-a" $ case Frame.decompressU 20 (Bytes.fromByteArray exampleA) of
         Nothing -> fail "decompression failed"
         Just _ -> pure ()
+    , testCase "example-b" $ case Frame.decompressU 10 (Bytes.fromByteArray exampleB) of
+        Nothing -> fail "decompression failed"
+        Just x -> x @=? Exts.fromList [0xbb :: Word8, 0x01, 0xbb, 0x01, 0xbb, 0x01, 0xbb, 0x01, 0xbb, 0x01 ]
     ]
   ]
 
@@ -60,5 +63,19 @@ exampleA = Exts.fromList
   , 0x60, 0x40, 0x82
   , 0x0d, 0x00, 0x00, 0x00 -- little-endian encoding of the number 13
   , 0x47, 0x15, 0x08, 0x01, 0x0a, 0x04 , 0x00, 0x50, 0x0a, 0x15, 0x08, 0x01, 0x0a
+  , 0x00, 0x00, 0x00, 0x00
+  ]
+
+-- Example that tests a frame that does not use compression
+exampleB :: ByteArray
+exampleB = Exts.fromList
+  [ 0x04, 0x22, 0x4d, (0x18 :: Word8)
+  , 0x60, 0x40, 0x82
+  , 0x0a, 0x00, 0x00, 0x80 -- little-endian encoding of 10 but with the high bit set to disable compression
+  , 0xbb, 0x01
+  , 0xbb, 0x01
+  , 0xbb, 0x01
+  , 0xbb, 0x01
+  , 0xbb, 0x01
   , 0x00, 0x00, 0x00, 0x00
   ]
