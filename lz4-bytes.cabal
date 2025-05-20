@@ -17,6 +17,8 @@ category:           Data
 build-type:         Simple
 extra-source-files:
   cbits/lz4.h
+  cbits/lz4frame.h
+  cbits/xxhash.h
   cbits/lz4hc.h
 
 extra-doc-files:    CHANGELOG.md
