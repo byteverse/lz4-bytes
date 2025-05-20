@@ -33,15 +33,18 @@ tests = testGroup "lz4"
   , testGroup "frame"
     [ testProperty "roundtrip-HC" $ forAll genByteArray $ \bs ->
         let cs = Frame.compressHighlyU 3 (Bytes.fromByteArray bs) in
-        Just bs
+        Right bs
         ===
         Frame.decompressU (sizeofByteArray bs) (Bytes.fromByteArray cs)
     , testCase "example-a" $ case Frame.decompressU 20 (Bytes.fromByteArray exampleA) of
-        Nothing -> fail "decompression failed"
-        Just _ -> pure ()
+        Left{} -> fail "decompression failed"
+        Right _ -> pure ()
     , testCase "example-b" $ case Frame.decompressU 10 (Bytes.fromByteArray exampleB) of
-        Nothing -> fail "decompression failed"
-        Just x -> x @=? Exts.fromList [0xbb :: Word8, 0x01, 0xbb, 0x01, 0xbb, 0x01, 0xbb, 0x01, 0xbb, 0x01 ]
+        Left{} -> fail "decompression failed"
+        Right x -> x @=? Exts.fromList [0xbb :: Word8, 0x01, 0xbb, 0x01, 0xbb, 0x01, 0xbb, 0x01, 0xbb, 0x01 ]
+    , testCase "example-c" $ case Frame.decompressU 20 (Bytes.fromByteArray exampleC) of
+        Left e -> fail ("decompression failed, error code: " ++ show e)
+        Right _ -> pure ()
     ]
   ]
 
@@ -61,6 +64,19 @@ exampleA :: ByteArray
 exampleA = Exts.fromList
   [ 0x04, 0x22, 0x4d, (0x18 :: Word8)
   , 0x60, 0x40, 0x82
+  , 0x0d, 0x00, 0x00, 0x00 -- little-endian encoding of the number 13
+  , 0x47, 0x15, 0x08, 0x01, 0x0a, 0x04 , 0x00, 0x50, 0x0a, 0x15, 0x08, 0x01, 0x0a
+  , 0x00, 0x00, 0x00, 0x00
+  ]
+
+-- Same as exampleA, but the flag indicates that linked blocks are used.
+-- There is only one block, so there aren't actually linked blocks, but
+-- this lets us force the decompress function to take the slow path
+-- where it sets up a decompression context.
+exampleC :: ByteArray
+exampleC = Exts.fromList
+  [ 0x04, 0x22, 0x4d, (0x18 :: Word8)
+  , 0x40, 0x40, 0xc0
   , 0x0d, 0x00, 0x00, 0x00 -- little-endian encoding of the number 13
   , 0x47, 0x15, 0x08, 0x01, 0x0a, 0x04 , 0x00, 0x50, 0x0a, 0x15, 0x08, 0x01, 0x0a
   , 0x00, 0x00, 0x00, 0x00

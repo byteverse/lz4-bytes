@@ -1,6 +1,6 @@
 cabal-version:      2.2
 name:               lz4-bytes
-version:            0.1.2.0
+version:            0.2.0.0
 synopsis:           Bindings to LZ4
 description:
   This library is similar to the @lz4@ library except that it works
@@ -41,12 +41,15 @@ library
     , run-st      >=0.1.1 && <0.2
 
   hs-source-dirs:  src
-  include-dirs:    cbits
-  ghc-options:     -O2
+  include-dirs: cbits
+  ghc-options: -O2 -Wall
+  cc-options: -Wall
   c-sources:
     cbits/hs_lz4.c
     cbits/lz4.c
+    cbits/lz4frame.c
     cbits/lz4hc.c
+    cbits/xxhash.c
 
 test-suite test
   import:         build-settings
