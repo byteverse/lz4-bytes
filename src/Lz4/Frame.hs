@@ -153,9 +153,6 @@ compressHighlyU !lvl (Bytes (ByteArray arr) off0 len0) = runST do
     | len0 <= 1_048_576 -> do
         PM.writeByteArray dst 5 (0b0110_0000 :: Word8)
         PM.writeByteArray dst 6 (0x51 :: Word8)
-    | len0 <= 4_194_304 -> do
-        PM.writeByteArray dst 5 (0b0110_0000 :: Word8)
-        PM.writeByteArray dst 6 (0x51 :: Word8)
     | otherwise -> do
         PM.writeByteArray dst 5 (0b0111_0000 :: Word8)
         PM.writeByteArray dst 6 (0x73 :: Word8)
