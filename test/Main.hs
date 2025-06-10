@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Data.Bytes (Bytes)
@@ -36,6 +37,16 @@ tests = testGroup "lz4"
         Right bs
         ===
         Frame.decompressU (sizeofByteArray bs) (Bytes.fromByteArray cs)
+    , testCase "roundtrip-HC-80k" $ testRoundtrip 80_000
+    , testCase "roundtrip-HC-800k" $ testRoundtrip 800_000
+    , testCase "roundtrip-HC-2M" $ testRoundtrip 2_000_000
+    , testCase "roundtrip-HC-5M" $ testRoundtrip 5_000_000
+    , testCase "roundtrip-HC-9M" $ testRoundtrip 9_000_000
+    , testCase "packing-HC-80k" $ testPacking 80_000
+    , testCase "packing-HC-800k" $ testPacking 800_000
+    , testCase "packing-HC-2M" $ testPacking 2_000_000
+    , testCase "packing-HC-5M" $ testPacking 5_000_000
+    , testCase "packing-HC-9M" $ testPacking 9_000_000
     , testCase "example-a" $ case Frame.decompressU 20 (Bytes.fromByteArray exampleA) of
         Left{} -> fail "decompression failed"
         Right _ -> pure ()
@@ -47,6 +58,25 @@ tests = testGroup "lz4"
         Right _ -> pure ()
     ]
   ]
+
+testRoundtrip :: Int -> IO ()
+testRoundtrip sz =
+  let uncompressed = Bytes.replicate sz 0x01 in
+  let compressed = Frame.compressHighlyU 3 uncompressed in
+  case Frame.decompressU sz (Bytes.fromByteArray compressed) of
+    Left{} -> fail "decompression failed"
+    Right result -> if uncompressed == Bytes.fromByteArray result
+      then pure ()
+      else fail "compression and decompression did not round trip"
+
+testPacking :: Int -> IO ()
+testPacking sz =
+  let uncompressed = Bytes.replicate sz 0x01 in
+  let compressed = Frame.compressHighlyU 3 uncompressed in
+  let lenCompressed = sizeofByteArray compressed in
+  if lenCompressed * 100 > sz
+    then fail "Repetition of same byte has compression factor less than 100"
+    else pure ()
 
 genBytes :: Gen Bytes
 genBytes = do

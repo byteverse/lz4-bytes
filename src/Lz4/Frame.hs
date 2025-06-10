@@ -133,8 +133,8 @@ compressHighlyU ::
   -- | Bytes to compress
   Bytes ->
   ByteArray
-compressHighlyU !lvl (Bytes (ByteArray arr) off len) = runST do
-  let maxSz = requiredBufferSize len + 15
+compressHighlyU !lvl (Bytes (ByteArray arr) off0 len0) = runST do
+  let maxSz = requiredBufferSize len0 + 15
   dst@(MutableByteArray dst#) <- PM.newByteArray maxSz
   -- -- First 4 bytes: magic identifier
   PM.writeByteArray dst 0 (0x04 :: Word8)
@@ -144,26 +144,38 @@ compressHighlyU !lvl (Bytes (ByteArray arr) off len) = runST do
   -- Next 3 bytes: frame descriptor
   PM.writeByteArray dst 4 (0b0110_0000 :: Word8)
   if
-    | len <= 65_536 -> do
+    | len0 <= 65_536 -> do
         PM.writeByteArray dst 5 (0b0100_0000 :: Word8)
         PM.writeByteArray dst 6 (0x82 :: Word8)
-    | len <= 262_144 -> do
+    | len0 <= 262_144 -> do
         PM.writeByteArray dst 5 (0b0101_0000 :: Word8)
         PM.writeByteArray dst 6 (0xFB :: Word8)
-    | len <= 1_048_576 -> do
+    | len0 <= 1_048_576 -> do
+        PM.writeByteArray dst 5 (0b0110_0000 :: Word8)
+        PM.writeByteArray dst 6 (0x51 :: Word8)
+    | len0 <= 4_194_304 -> do
         PM.writeByteArray dst 5 (0b0110_0000 :: Word8)
         PM.writeByteArray dst 6 (0x51 :: Word8)
     | otherwise -> do
         PM.writeByteArray dst 5 (0b0111_0000 :: Word8)
         PM.writeByteArray dst 6 (0x73 :: Word8)
-  actualSz <- unsafeIOToST (c_hs_compress_HC arr off dst# 11 len maxSz lvl)
-  LE.writeUnalignedByteArray dst 7 (fromIntegral actualSz :: Int32)
-  PM.writeByteArray dst (actualSz + 11) (0x00 :: Word8)
-  PM.writeByteArray dst (actualSz + 12) (0x00 :: Word8)
-  PM.writeByteArray dst (actualSz + 13) (0x00 :: Word8)
-  PM.writeByteArray dst (actualSz + 14) (0x00 :: Word8)
-  PM.shrinkMutableByteArray dst (actualSz + 15)
-  PM.unsafeFreezeByteArray dst
+  let handleBlocks !ix !inputOff !inputRemaining = do
+        let !inputClipped = min inputRemaining 4_194_304
+        actualSz <- unsafeIOToST (c_hs_compress_HC arr inputOff dst# (ix + 4) inputClipped maxSz lvl)
+        case actualSz of
+          0 -> errorWithoutStackTrace "Lz4.Frame.compressHighlyU: compression failed"
+          _ -> do
+            LE.writeUnalignedByteArray dst ix (fromIntegral actualSz :: Int32)
+            let inputRemaining' = inputRemaining - inputClipped
+            let inputOff' = inputOff + inputClipped
+            if inputRemaining' > 0
+              then do
+                handleBlocks (ix + 4 + actualSz) inputOff' inputRemaining'
+              else do
+                LE.writeUnalignedByteArray dst (actualSz + ix + 4) (0 :: Word32)
+                PM.shrinkMutableByteArray dst (actualSz + ix + 8)
+                PM.unsafeFreezeByteArray dst
+  handleBlocks 7 off0 len0
 
 indexWord8 :: ByteArray -> Int -> Word8
 {-# inline indexWord8 #-}
