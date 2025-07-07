@@ -1,5 +1,10 @@
 # Revision history for lz4-bytes
 
+## 0.2.0.0 -- 2025-07-07
+
+* Make it possible to compress much larger buffers as a frame
+* Correctly handle frames with multiple blocks during decompression
+
 ## 0.1.2.0 -- 2025-03-26
 
 * Add `Lz4.Frame.decompressU`.
