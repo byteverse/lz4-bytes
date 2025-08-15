@@ -45,7 +45,7 @@ library
   hs-source-dirs:  src
   include-dirs: cbits
   ghc-options: -O2 -Wall
-  cc-options: -Wall
+  cc-options: -Wall -O3
   c-sources:
     cbits/hs_lz4.c
     cbits/lz4.c
