@@ -27,7 +27,7 @@ module Lz4.Block
   , requiredBufferSize
   ) where
 
-import Lz4.Internal (requiredBufferSize,c_hs_compress_HC,c_hs_decompress_safe)
+import Lz4.Internal (requiredBufferSize,c_hs_compress_HC,c_hs_decompress_safe,c_hs_compress_fast)
 
 import Control.Monad.ST (runST)
 import Control.Monad.ST.Run (runByteArrayST)
@@ -166,22 +166,6 @@ decompressU dstSz (Bytes (ByteArray arr) off len) = runST do
       pure (Just result)
     else pure Nothing
 
-foreign import ccall unsafe "hs_compress_fast"
-  c_hs_compress_fast ::
-    ByteArray# -> -- Source
-    Int -> -- Source offset
-    MutableByteArray# s -> -- Destination
-    Int -> -- Destination offset
-    Int -> -- Input size
-    Int -> -- Destination capacity
-    Int -> -- Acceleration factor
-    IO Int -- Result length
-
 data Lz4BufferTooSmall = Lz4BufferTooSmall
   deriving stock (Eq, Show)
   deriving anyclass (Control.Exception.Exception)
-
--- foreign import capi "lz4.h value sizeof(LZ4_stream_t)" lz4StreamSz :: Int
---
--- allocateLz4StreamT :: ST s (MutableByteArray s)
--- allocateLz4StreamT = PM.newPinnedByteArray lz4StreamSz

@@ -10,6 +10,7 @@ module Lz4.Internal
   ( DecompressionContext
   , requiredBufferSize
   , c_hs_compress_HC
+  , c_hs_compress_fast
   , c_hs_decompress_safe
   , c_hs_decompress_frame
   , c_LZ4F_createDecompressionContext
@@ -31,6 +32,17 @@ requiredBufferSize s = s + (div s 255) + 16
 
 foreign import ccall unsafe "hs_compress_HC"
   c_hs_compress_HC ::
+    ByteArray# -> -- Source
+    Int -> -- Source offset
+    MutableByteArray# s -> -- Destination
+    Int -> -- Destination offset
+    Int -> -- Input size
+    Int -> -- Destination capacity
+    Int -> -- Compression level
+    IO Int -- Result length
+
+foreign import ccall unsafe "hs_compress_fast"
+  c_hs_compress_fast ::
     ByteArray# -> -- Source
     Int -> -- Source offset
     MutableByteArray# s -> -- Destination

@@ -14,11 +14,12 @@ containing a single block.
 module Lz4.Frame
   ( -- * Compression
     compressHighlyU
+  , compressU
     -- * Decompression
   , decompressU
   ) where
 
-import Lz4.Internal (requiredBufferSize,c_hs_compress_HC,c_hs_decompress_safe,DecompressionContext)
+import Lz4.Internal (requiredBufferSize,c_hs_compress_HC,c_hs_compress_fast,c_hs_decompress_safe,DecompressionContext)
 import Lz4.Internal (c_LZ4F_createDecompressionContext, c_hs_decompress_frame)
 import Lz4.Internal (c_LZ4F_freeDecompressionContext)
 import Foreign.C.Types (CSize)
@@ -120,12 +121,6 @@ decompressU !decompressedSize (Bytes arr@(ByteArray arr# ) off len) = do
 {- | Use HC compression to produce a frame with a single block.
 All optional fields (checksums, content sizes, and dictionary IDs)
 are omitted.
-
-Note: Currently, this produces incorrect output when the size of
-the input to be compressed is greater than 4MiB. The only way
-to correct this function is to make it not compress large input.
-This can be done by setting the high bit of the size. This needs
-to be tested though since it is an uncommon code path.
 -}
 compressHighlyU ::
   -- | Compression level (Use 9 if uncertain)
@@ -133,7 +128,28 @@ compressHighlyU ::
   -- | Bytes to compress
   Bytes ->
   ByteArray
-compressHighlyU !lvl (Bytes (ByteArray arr) off0 len0) = runST do
+{-# inline compressHighlyU #-}
+compressHighlyU = compressGeneralU 1
+
+compressU ::
+  -- | Acceleration factor (Use 1 if uncertain, higher values increase speed and reduce compression)
+  Int ->
+  -- | Bytes to compress
+  Bytes ->
+  ByteArray
+{-# inline compressU #-}
+compressU = compressGeneralU 0
+
+compressGeneralU ::
+  -- Is HC (0 means fast, anything else means HC)
+  Word32 ->
+  -- Compression level (meanings vary for HC and fast)
+  Int ->
+  -- Bytes to compress
+  Bytes ->
+  ByteArray
+{-# noinline compressGeneralU #-}
+compressGeneralU !isHc !lvl (Bytes (ByteArray arr) off0 len0) = runST do
   let maxSz = requiredBufferSize len0 + 15
   dst@(MutableByteArray dst#) <- PM.newByteArray maxSz
   -- -- First 4 bytes: magic identifier
@@ -158,7 +174,9 @@ compressHighlyU !lvl (Bytes (ByteArray arr) off0 len0) = runST do
         PM.writeByteArray dst 6 (0x73 :: Word8)
   let handleBlocks !ix !inputOff !inputRemaining = do
         let !inputClipped = min inputRemaining 4_194_304
-        actualSz <- unsafeIOToST (c_hs_compress_HC arr inputOff dst# (ix + 4) inputClipped maxSz lvl)
+        actualSz <- case isHc of
+          0 -> unsafeIOToST (c_hs_compress_fast arr inputOff dst# (ix + 4) inputClipped maxSz lvl)
+          _ -> unsafeIOToST (c_hs_compress_HC arr inputOff dst# (ix + 4) inputClipped maxSz lvl)
         case actualSz of
           0 -> errorWithoutStackTrace "Lz4.Frame.compressHighlyU: compression failed"
           _ -> do
